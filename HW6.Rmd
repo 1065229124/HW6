@@ -1,0 +1,148 @@
+---
+title: "HW6"
+output: html_document
+date: '2022-05-22'
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(tidyverse)
+library(tidymodels)
+library(data.table)
+library(janitor)
+library(corrplot)
+library(rpart.plot)
+library(vip)
+```
+
+## Q1
+
+
+```{r}
+data<- read_csv("data/Pokemon.csv")%>%clean_names()
+data <- data %>% filter((type_1 == "Bug" | type_1 == "Fire" |
+                           type_1 == "Grass" | type_1 == "Normal" |
+                           type_1 == "Water" | type_1 == "Psychic"))
+
+data$type_1 <- as.factor(data$type_1)
+data$legendary <- as.factor(data$legendary)
+data$generation <- as.factor(data$generation)
+
+
+
+split = initial_split(data, prob = .8,strata = type_1) 
+poke_train = training(split)
+poke_test = testing(split)
+folds = vfold_cv(poke_train, v = 5, strata = type_1)
+
+
+poke_recipe = recipe(type_1 ~ legendary + generation + sp_atk + attack + speed + defense + hp + sp_def, data = poke_train) %>%
+  step_dummy(c("legendary", "generation")) %>% 
+  step_normalize(all_predictors())
+```
+
+```{r}
+```
+
+
+## Q2
+
+
+```{r}
+data %>% 
+  select(is.numeric) %>% 
+  cor() %>% 
+  corrplot(type = "lower")
+```
+
+questionnnnnnnnnnnnnnnnnnnnnnnnn need to be answer 
+
+## Q3
+
+
+```{r}
+
+poke_model = decision_tree(cost_complexity = tune()) %>% #set decision tree model with cost complexity tuned
+  set_engine("rpart") %>% #use r part engine
+  set_mode("classification") #set mode to classification
+
+tree_workflow = workflow() %>% #create new workflow
+  add_recipe(poke_recipe) %>% #add pokemon recipe
+  add_model(poke_model) #add decision tree model
+
+grid <- grid_regular(cost_complexity(range = c(-3, -1)), levels = 10)
+
+```
+
+```{r}
+
+tree_tune <- tune_grid( 
+  tree_workflow, 
+  resamples = folds, 
+  grid = grid, 
+  metrics = metric_set(roc_auc))
+
+autoplot(tree_tune)
+```
+
+
+questionnnnnnnnnnnnnnnnnnnnnnnnn need to be answer 
+
+
+
+
+
+## Q4
+
+
+```{r}
+```
+
+
+## Q5
+
+
+```{r}
+```
+
+
+## Q6
+
+
+```{r}
+```
+
+
+## Q7
+
+
+```{r}
+```
+
+## Q8
+
+
+```{r}
+```
+
+## Q9
+
+
+```{r}
+```
+
+## Q10
+
+
+```{r}
+```
+
+## Q11
+
+
+```{r}
+```
+
+
+```{r}
+```
