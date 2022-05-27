@@ -96,46 +96,170 @@ questionnnnnnnnnnnnnnnnnnnnnnnnn need to be answer
 
 
 ```{r}
+
+arrange(collect_metrics(tree_tune),desc(mean))
+
 ```
+
+We can tell that the best roc_auc is 0.661
 
 
 ## Q5
 
 
 ```{r}
+best_complexity <- select_best(tree_tune)
+
+tree_final <- finalize_workflow(tree_workflow, best_complexity)
+
+final_fit <- fit(tree_final, data = poke_train)
+
+final_fit %>%
+  extract_fit_engine() %>%
+  rpart.plot()
 ```
+
+```{r}
+rand_model = rand_forest(mtry = tune(), trees = tune(), min_n = tune(),mode = "classification") %>%
+  set_engine("ranger", importance = "impurity")
+
+rand_workflow = workflow() %>% 
+  add_recipe(poke_recipe) %>% 
+  add_model(rand_model)
+
+
+rand_grid <- grid_regular(mtry(c(1,8)),trees(c(10,500)),min_n(c(1,8)),levels = 8)
+```
+
+
+Answer:    Answer:Answer:Answer:Answer:Answer:Answer:
 
 
 ## Q6
 
 
 ```{r}
+
+rand_res <- tune_grid(
+  rand_workflow, 
+  resamples = folds, 
+  grid = rand_grid, 
+  metrics = metric_set(roc_auc),
+)
+ 
+autoplot(rand_res)
 ```
 
+Answer: Answer: Answer: Answer: Answer: Answer: 
 
 ## Q7
 
 
 ```{r}
+arrange(collect_metrics(rand_res),desc(mean))
+
 ```
+
+
+The best roc_auc is 0.74  when mtry is 3 and trees is 430 and min_n is 8.
+
 
 ## Q8
 
 
 ```{r}
+best_rand_fit <- select_best(rand_res)
+
+rand_tree_final <- finalize_workflow(rand_workflow, best_rand_fit)
+
+rand_tree_final_fit <- fit(rand_tree_final, data = poke_train)
+
+rand_tree_final_fit %>% 
+  extract_fit_engine() %>% 
+  vip()
+
 ```
+
+From the graph, we can tell that Special attack is the most important variable, then we have variable Speed, attack, hp, special defense, and defense which are almost same level of importance. At last, generation variables have the least importance.
+
 
 ## Q9
 
 
 ```{r}
+
+boost_model <- boost_tree(trees = tune()) %>%
+  set_engine("xgboost") %>%
+  set_mode("classification")
+
+boost_grid <- grid_regular(trees(c(10,2000)),levels = 10)
+
+boost_workflow <- workflow() %>%
+  add_recipe(poke_recipe) %>% 
+  add_model(boost_model)
+
+boost_tune <- tune_grid(
+  boost_workflow, 
+  resamples = folds, 
+  grid = boost_grid, 
+  metrics = metric_set(roc_auc),
+)
+ 
+autoplot(boost_tune)
+
 ```
+
+we can tell that the accuracy increase as the number of trees increase, and it reachs its peak accuracy at trees number about 1350.
+
+```{r}
+arrange(collect_metrics(boost_tune),desc(mean))
+```
+
+The best roc_auc is 0.716.
 
 ## Q10
 
 
 ```{r}
+q10_final <- finalize_workflow(boost_workflow,select_best(boost_tune))
+q10_fit <- fit(q10_final,poke_train)
+
+
+
+final_rand_model = augment(rand_tree_final_fit, new_data = poke_train)
+final_class_model = augment(final_fit, new_data = poke_train)
+final_boost_model = augment(q10_fit, new_data = poke_train)
+
+
+bind_rows(
+  roc_auc(final_rand_model, truth = type_1, .pred_Bug, .pred_Fire, .pred_Grass, .pred_Normal, .pred_Water, .pred_Psychic),
+  roc_auc(final_class_model, truth = type_1, .pred_Bug, .pred_Fire, .pred_Grass, .pred_Normal, .pred_Water, .pred_Psychic),
+  roc_auc(final_boost_model, truth = type_1, .pred_Bug, .pred_Fire, .pred_Grass, .pred_Normal, .pred_Water, .pred_Psychic) 
+)
+
 ```
+
+From the table, we can tell that best model is random forest mode which  has roc_auc of 0.796.
+
+
+```{r}
+rf_test_fit = augment(rand_tree_final_fit, new_data = poke_test) 
+
+roc_auc(rf_test_fit, truth = type_1, .pred_Bug, .pred_Fire, .pred_Grass, .pred_Normal, .pred_Water, .pred_Psychic) 
+
+```
+
+
+```{r}
+conf_mat(rf_test_fit, truth = type_1, estimate = .pred_class) %>% 
+  autoplot(type = "heatmap") + 
+  theme(axis.text.x = element_text(angle = 90, hjust=1))
+```
+
+```{r}
+autoplot(roc_curve(rf_test_fit, truth = type_1, .pred_Bug, .pred_Fire, .pred_Grass, .pred_Normal, .pred_Water, .pred_Psychic))
+```
+The model is good at predicting Normal pokemon is worst at predicting Psychic and Grass Pokemon.
 
 ## Q11
 
